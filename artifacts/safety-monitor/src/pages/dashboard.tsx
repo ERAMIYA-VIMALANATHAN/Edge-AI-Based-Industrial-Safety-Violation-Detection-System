@@ -186,7 +186,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
              <StatCard title="Active Workers" value={summary?.currentWorkerCount || 0} icon={Users} color="blue" />
-             <StatCard title="In Hazard" value={summary?.workersInHazardZone || 0} icon={AlertTriangle} color="red" />
+             <StatCard title="Workers in Workspace" value={summary?.workersInHazardZone || 0} icon={AlertTriangle} color="red" />
              <StatCard title="Helmet %" value={summary?.helmetCompliance || 0} suffix="%" icon={HardHat} color="green" />
              <StatCard title="Violations" value={summary?.activeViolations || 0} icon={ShieldAlert} color="amber" />
           </div>
