@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Industrial Safety Monitoring System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: dashboard
+    description: Dashboard summary
+  - name: workers
+    description: Worker management
+  - name: cameras
+    description: Camera management
+  - name: zones
+    description: Safety zone management
+  - name: sensors
+    description: IoT sensor data
+  - name: alerts
+    description: Alert management
+  - name: warningLogs
+    description: Warning log management
+  - name: reports
+    description: Reports and analytics
+  - name: settings
+    description: System settings
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +44,1297 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/live-feed:
+    get:
+      operationId: getLiveFeed
+      tags: [dashboard]
+      summary: Get live camera feed detections
+      responses:
+        "200":
+          description: Live feed data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LiveCameraFeed"
+
+  /dashboard/active-alerts:
+    get:
+      operationId: getActiveAlerts
+      tags: [dashboard]
+      summary: Get recent active alerts for dashboard panel
+      responses:
+        "200":
+          description: Active alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /workers:
+    get:
+      operationId: listWorkers
+      tags: [workers]
+      summary: List all workers
+      parameters:
+        - name: zone
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Worker"
+    post:
+      operationId: createWorker
+      tags: [workers]
+      summary: Create worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+
+  /workers/{id}:
+    get:
+      operationId: getWorker
+      tags: [workers]
+      summary: Get worker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateWorker
+      tags: [workers]
+      summary: Update worker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+    delete:
+      operationId: deleteWorker
+      tags: [workers]
+      summary: Delete worker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /workers/{id}/compliance:
+    get:
+      operationId: getWorkerCompliance
+      tags: [workers]
+      summary: Get worker compliance history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Compliance history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerCompliance"
+
+  /cameras:
+    get:
+      operationId: listCameras
+      tags: [cameras]
+      summary: List all cameras
+      responses:
+        "200":
+          description: List of cameras
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Camera"
+    post:
+      operationId: createCamera
+      tags: [cameras]
+      summary: Create camera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CameraInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+
+  /cameras/{id}:
+    get:
+      operationId: getCamera
+      tags: [cameras]
+      summary: Get camera
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Camera
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCamera
+      tags: [cameras]
+      summary: Update camera
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CameraUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+    delete:
+      operationId: deleteCamera
+      tags: [cameras]
+      summary: Delete camera
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /zones:
+    get:
+      operationId: listZones
+      tags: [zones]
+      summary: List all safety zones
+      responses:
+        "200":
+          description: List of zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyZone"
+    post:
+      operationId: createZone
+      tags: [zones]
+      summary: Create safety zone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyZoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyZone"
+
+  /zones/{id}:
+    get:
+      operationId: getZone
+      tags: [zones]
+      summary: Get safety zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyZone"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateZone
+      tags: [zones]
+      summary: Update safety zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyZoneUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyZone"
+    delete:
+      operationId: deleteZone
+      tags: [zones]
+      summary: Delete safety zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /sensors/live:
+    get:
+      operationId: getLiveSensorData
+      tags: [sensors]
+      summary: Get current live sensor readings for all sensors
+      responses:
+        "200":
+          description: Live sensor readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SensorReading"
+
+  /sensors/history:
+    get:
+      operationId: getSensorHistory
+      tags: [sensors]
+      summary: Get sensor history for charts
+      parameters:
+        - name: sensorId
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sensor history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SensorHistoryPoint"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List alerts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: zoneId
+          in: query
+          schema:
+            type: string
+        - name: workerId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}:
+    get:
+      operationId: getAlert
+      tags: [alerts]
+      summary: Get alert detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}/acknowledge:
+    patch:
+      operationId: acknowledgeAlert
+      tags: [alerts]
+      summary: Acknowledge alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertAcknowledgeInput"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}/resolve:
+    patch:
+      operationId: resolveAlert
+      tags: [alerts]
+      summary: Resolve alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertResolveInput"
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /warning-logs:
+    get:
+      operationId: listWarningLogs
+      tags: [warningLogs]
+      summary: List warning logs
+      parameters:
+        - name: cameraId
+          in: query
+          schema:
+            type: string
+        - name: zoneId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of warning logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WarningLog"
+
+  /reports/summary:
+    get:
+      operationId: getReportSummary
+      tags: [reports]
+      summary: Get compliance report summary
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+      responses:
+        "200":
+          description: Report summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummary"
+
+  /reports/zone-violations:
+    get:
+      operationId: getZoneViolations
+      tags: [reports]
+      summary: Get violations grouped by zone
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Zone violations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZoneViolationStat"
+
+  /reports/worker-violations:
+    get:
+      operationId: getWorkerViolations
+      tags: [reports]
+      summary: Get violations grouped by worker
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Worker violations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkerViolationStat"
+
+  /reports/compliance-trend:
+    get:
+      operationId: getComplianceTrend
+      tags: [reports]
+      summary: Get PPE compliance trend over time
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Compliance trend
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceTrendPoint"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get system settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update system settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemSettingsUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSettings"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, username, role]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, supervisor, viewer]
+        name:
+          type: string
+
+    DashboardSummary:
+      type: object
+      required:
+        - totalWorkers
+        - workersInHazardZone
+        - helmetCompliance
+        - vestCompliance
+        - maskCompliance
+        - activeViolations
+        - currentWorkerCount
+        - activeCameras
+        - totalZones
+      properties:
+        totalWorkers:
+          type: integer
+        workersInHazardZone:
+          type: integer
+        helmetCompliance:
+          type: number
+        vestCompliance:
+          type: number
+        maskCompliance:
+          type: number
+        activeViolations:
+          type: integer
+        currentWorkerCount:
+          type: integer
+        activeCameras:
+          type: integer
+        totalZones:
+          type: integer
+
+    Detection:
+      type: object
+      required: [trackId, x, y, width, height, hasHelmet, hasVest, hasMask, inHazardZone, zoneName]
+      properties:
+        trackId:
+          type: string
+        rfidId:
+          type: ["string", "null"]
+        workerName:
+          type: ["string", "null"]
+        x:
+          type: number
+        y:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        hasHelmet:
+          type: boolean
+        hasVest:
+          type: boolean
+        hasMask:
+          type: boolean
+        inHazardZone:
+          type: boolean
+        zoneName:
+          type: string
+        confidence:
+          type: number
+
+    LiveCameraFeed:
+      type: object
+      required: [cameraId, cameraName, location, status, detections]
+      properties:
+        cameraId:
+          type: string
+        cameraName:
+          type: string
+        location:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, warning]
+        detections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        frameWidth:
+          type: integer
+        frameHeight:
+          type: integer
+
+    Worker:
+      type: object
+      required: [id, rfidId, name, department, currentZone, ppeStatus, lastSeen, complianceRate]
+      properties:
+        id:
+          type: string
+        rfidId:
+          type: string
+        name:
+          type: string
+        department:
+          type: string
+        currentZone:
+          type: ["string", "null"]
+        ppeStatus:
+          $ref: "#/components/schemas/PPEStatus"
+        lastSeen:
+          type: string
+        complianceRate:
+          type: number
+        totalViolations:
+          type: integer
+        status:
+          type: string
+          enum: [active, inactive, on_leave]
+
+    PPEStatus:
+      type: object
+      required: [hasHelmet, hasVest, hasMask]
+      properties:
+        hasHelmet:
+          type: boolean
+        hasVest:
+          type: boolean
+        hasMask:
+          type: boolean
+
+    WorkerInput:
+      type: object
+      required: [rfidId, name, department]
+      properties:
+        rfidId:
+          type: string
+        name:
+          type: string
+        department:
+          type: string
+        status:
+          type: string
+
+    WorkerUpdate:
+      type: object
+      properties:
+        rfidId:
+          type: string
+        name:
+          type: string
+        department:
+          type: string
+        status:
+          type: string
+
+    WorkerCompliance:
+      type: object
+      required: [workerId, totalDays, compliantDays, violations]
+      properties:
+        workerId:
+          type: string
+        totalDays:
+          type: integer
+        compliantDays:
+          type: integer
+        violations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+
+    Camera:
+      type: object
+      required: [id, name, location, streamUrl, status, zoneIds]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        location:
+          type: string
+        streamUrl:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, maintenance]
+        zoneIds:
+          type: array
+          items:
+            type: string
+        ipAddress:
+          type: ["string", "null"]
+        resolution:
+          type: ["string", "null"]
+        fps:
+          type: ["integer", "null"]
+
+    CameraInput:
+      type: object
+      required: [name, location, streamUrl]
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        streamUrl:
+          type: string
+        ipAddress:
+          type: string
+        resolution:
+          type: string
+        fps:
+          type: integer
+        zoneIds:
+          type: array
+          items:
+            type: string
+
+    CameraUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        streamUrl:
+          type: string
+        status:
+          type: string
+        ipAddress:
+          type: string
+        resolution:
+          type: string
+        fps:
+          type: integer
+        zoneIds:
+          type: array
+          items:
+            type: string
+
+    ZonePolygonPoint:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+
+    SafetyZone:
+      type: object
+      required: [id, name, cameraId, zoneType, polygon, requiredPPE]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        cameraId:
+          type: string
+        zoneType:
+          type: string
+          enum: [hazard, safe, restricted]
+        polygon:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZonePolygonPoint"
+        requiredPPE:
+          $ref: "#/components/schemas/PPEStatus"
+        color:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+
+    SafetyZoneInput:
+      type: object
+      required: [name, cameraId, zoneType, polygon, requiredPPE]
+      properties:
+        name:
+          type: string
+        cameraId:
+          type: string
+        zoneType:
+          type: string
+        polygon:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZonePolygonPoint"
+        requiredPPE:
+          $ref: "#/components/schemas/PPEStatus"
+        color:
+          type: string
+        description:
+          type: string
+
+    SafetyZoneUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        zoneType:
+          type: string
+        polygon:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZonePolygonPoint"
+        requiredPPE:
+          $ref: "#/components/schemas/PPEStatus"
+        color:
+          type: string
+        description:
+          type: string
+
+    SensorReading:
+      type: object
+      required: [sensorId, name, type, value, unit, status, timestamp, location]
+      properties:
+        sensorId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [temperature, gas, humidity, co2]
+        value:
+          type: number
+        unit:
+          type: string
+        status:
+          type: string
+          enum: [safe, warning, critical]
+        timestamp:
+          type: string
+        location:
+          type: string
+        threshold:
+          $ref: "#/components/schemas/SensorThreshold"
+
+    SensorThreshold:
+      type: object
+      required: [warning, critical]
+      properties:
+        warning:
+          type: number
+        critical:
+          type: number
+
+    SensorHistoryPoint:
+      type: object
+      required: [sensorId, timestamp, value]
+      properties:
+        sensorId:
+          type: string
+        timestamp:
+          type: string
+        value:
+          type: number
+
+    Alert:
+      type: object
+      required: [id, workerId, rfidId, workerName, cameraId, zoneId, zoneName, missingPPE, status, timestamp]
+      properties:
+        id:
+          type: string
+        workerId:
+          type: string
+        rfidId:
+          type: string
+        workerName:
+          type: string
+        cameraId:
+          type: string
+        zoneId:
+          type: string
+        zoneName:
+          type: string
+        missingPPE:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, acknowledged, resolved]
+        timestamp:
+          type: string
+        snapshotUrl:
+          type: ["string", "null"]
+        acknowledgedBy:
+          type: ["string", "null"]
+        acknowledgedAt:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+        voiceAlertText:
+          type: ["string", "null"]
+
+    AlertAcknowledgeInput:
+      type: object
+      required: [acknowledgedBy]
+      properties:
+        acknowledgedBy:
+          type: string
+        notes:
+          type: string
+
+    AlertResolveInput:
+      type: object
+      required: [resolvedBy]
+      properties:
+        resolvedBy:
+          type: string
+        notes:
+          type: string
+
+    WarningLog:
+      type: object
+      required: [id, timestamp, cameraId, cameraName, zoneId, zoneName, trackId, rfidId, missingPPE, alertStatus]
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+        cameraId:
+          type: string
+        cameraName:
+          type: string
+        zoneId:
+          type: string
+        zoneName:
+          type: string
+        trackId:
+          type: string
+        rfidId:
+          type: string
+        workerName:
+          type: ["string", "null"]
+        missingPPE:
+          type: array
+          items:
+            type: string
+        alertStatus:
+          type: string
+          enum: [active, acknowledged, resolved]
+        snapshotUrl:
+          type: ["string", "null"]
+
+    ReportSummary:
+      type: object
+      required:
+        - period
+        - totalViolations
+        - totalWorkers
+        - helmetCompliance
+        - vestCompliance
+        - maskCompliance
+        - overallCompliance
+        - dailyBreakdown
+      properties:
+        period:
+          type: string
+        totalViolations:
+          type: integer
+        totalWorkers:
+          type: integer
+        helmetCompliance:
+          type: number
+        vestCompliance:
+          type: number
+        maskCompliance:
+          type: number
+        overallCompliance:
+          type: number
+        dailyBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyBreakdown"
+
+    DailyBreakdown:
+      type: object
+      required: [date, violations, compliantWorkers]
+      properties:
+        date:
+          type: string
+        violations:
+          type: integer
+        compliantWorkers:
+          type: integer
+
+    ZoneViolationStat:
+      type: object
+      required: [zoneId, zoneName, violations, percentage]
+      properties:
+        zoneId:
+          type: string
+        zoneName:
+          type: string
+        violations:
+          type: integer
+        percentage:
+          type: number
+
+    WorkerViolationStat:
+      type: object
+      required: [workerId, workerName, rfidId, violations, complianceRate]
+      properties:
+        workerId:
+          type: string
+        workerName:
+          type: string
+        rfidId:
+          type: string
+        violations:
+          type: integer
+        complianceRate:
+          type: number
+
+    ComplianceTrendPoint:
+      type: object
+      required: [date, helmetCompliance, vestCompliance, maskCompliance, overallCompliance]
+      properties:
+        date:
+          type: string
+        helmetCompliance:
+          type: number
+        vestCompliance:
+          type: number
+        maskCompliance:
+          type: number
+        overallCompliance:
+          type: number
+
+    SystemSettings:
+      type: object
+      required: [id, factoryName, voiceAlertEnabled, voiceLanguage, alertRepeatIntervalSeconds, rfidEnabled, sensorThresholds, notificationEmail, notificationWebhook]
+      properties:
+        id:
+          type: string
+        factoryName:
+          type: string
+        factoryLocation:
+          type: ["string", "null"]
+        voiceAlertEnabled:
+          type: boolean
+        voiceLanguage:
+          type: string
+        alertRepeatIntervalSeconds:
+          type: integer
+        rfidEnabled:
+          type: boolean
+        sensorThresholds:
+          $ref: "#/components/schemas/SensorThresholdSet"
+        notificationEmail:
+          type: ["string", "null"]
+        notificationWebhook:
+          type: ["string", "null"]
+
+    SensorThresholdSet:
+      type: object
+      required: [temperature, gas, humidity]
+      properties:
+        temperature:
+          $ref: "#/components/schemas/SensorThreshold"
+        gas:
+          $ref: "#/components/schemas/SensorThreshold"
+        humidity:
+          $ref: "#/components/schemas/SensorThreshold"
+
+    SystemSettingsUpdate:
+      type: object
+      properties:
+        factoryName:
+          type: string
+        factoryLocation:
+          type: string
+        voiceAlertEnabled:
+          type: boolean
+        voiceLanguage:
+          type: string
+        alertRepeatIntervalSeconds:
+          type: integer
+        rfidEnabled:
+          type: boolean
+        sensorThresholds:
+          $ref: "#/components/schemas/SensorThresholdSet"
+        notificationEmail:
+          type: string
+        notificationWebhook:
+          type: string
