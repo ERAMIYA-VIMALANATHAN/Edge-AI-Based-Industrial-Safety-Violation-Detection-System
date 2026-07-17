@@ -8,6 +8,8 @@ import NotFound from "@/pages/not-found";
 import { AuthProvider } from "./hooks/use-auth";
 import { ProtectedRoute } from "./components/protected-route";
 import { Layout } from "./components/layout";
+import { CameraVideoProvider } from "./context/camera-video-context";
+import { LocalWarningLogsProvider } from "./context/local-warning-logs-context";
 
 // Pages
 import Login from "./pages/login";
@@ -37,8 +39,6 @@ function ProtectedRoutes() {
           <Route path="/reports" component={Reports} />
           <Route path="/sensors" component={Sensors} />
           <Route path="/settings" component={Settings} />
-          
-          {/* Catch-all for protected routes */}
           <Route component={NotFound} />
         </Switch>
       </Layout>
@@ -48,24 +48,26 @@ function ProtectedRoutes() {
 
 function App() {
   React.useEffect(() => {
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add("dark");
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthProvider>
-            <Switch>
-              <Route path="/" component={() => <Login />} />
-              <Route path="/login" component={Login} />
-              
-              {/* All other routes are protected and wrapped in Layout */}
-              <Route path="/:rest*" component={ProtectedRoutes} />
-            </Switch>
-          </AuthProvider>
-        </WouterRouter>
-        <Toaster theme="dark" position="top-right" richColors />
+        <CameraVideoProvider>
+          <LocalWarningLogsProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AuthProvider>
+                <Switch>
+                  <Route path="/" component={() => <Login />} />
+                  <Route path="/login" component={Login} />
+                  <Route path="/:rest*" component={ProtectedRoutes} />
+                </Switch>
+              </AuthProvider>
+            </WouterRouter>
+            <Toaster theme="dark" position="top-right" richColors />
+          </LocalWarningLogsProvider>
+        </CameraVideoProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
