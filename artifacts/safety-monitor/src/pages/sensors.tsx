@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useGetLiveSensorData, useGetSensorHistory } from "@workspace/api-client-react";
+import { useGetLiveSensorData, useGetSensorHistory, getGetLiveSensorDataQueryKey, getGetSensorHistoryQueryKey } from "@workspace/api-client-react";
 import { Activity, Thermometer, Wind, Droplets } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { format } from "date-fns";
@@ -14,7 +14,7 @@ const SENSOR_ICONS: Record<string, React.ElementType> = {
 export default function Sensors() {
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
 
-  const { data: sensors, isLoading: loadingSensors } = useGetLiveSensorData({ query: { refetchInterval: 5000 } });
+  const { data: sensors, isLoading: loadingSensors } = useGetLiveSensorData({ query: { refetchInterval: 5000, queryKey: getGetLiveSensorDataQueryKey() } });
   
   // Set default selection
   React.useEffect(() => {
@@ -25,7 +25,7 @@ export default function Sensors() {
 
   const { data: history, isLoading: loadingHistory } = useGetSensorHistory(
     { sensorId: selectedSensorId || undefined },
-    { query: { enabled: !!selectedSensorId } }
+    { query: { enabled: !!selectedSensorId, queryKey: getGetSensorHistoryQueryKey({ sensorId: selectedSensorId || undefined }) } }
   );
 
   const selectedSensor = sensors?.find(s => s.sensorId === selectedSensorId);

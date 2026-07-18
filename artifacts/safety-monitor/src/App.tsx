@@ -10,6 +10,7 @@ import { ProtectedRoute } from "./components/protected-route";
 import { Layout } from "./components/layout";
 import { CameraVideoProvider } from "./context/camera-video-context";
 import { LocalWarningLogsProvider } from "./context/local-warning-logs-context";
+import { NotificationProvider } from "./context/notification-context";
 
 // Pages
 import Login from "./pages/login";
@@ -30,15 +31,15 @@ function ProtectedRoutes() {
     <ProtectedRoute>
       <Layout>
         <Switch>
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/workers" component={Workers} />
-          <Route path="/cameras" component={Cameras} />
-          <Route path="/zones" component={Zones} />
-          <Route path="/alerts" component={Alerts} />
+          <Route path="/dashboard"    component={Dashboard} />
+          <Route path="/workers"      component={Workers} />
+          <Route path="/cameras"      component={Cameras} />
+          <Route path="/zones"        component={Zones} />
+          <Route path="/alerts"       component={Alerts} />
           <Route path="/warning-logs" component={WarningLogs} />
-          <Route path="/reports" component={Reports} />
-          <Route path="/sensors" component={Sensors} />
-          <Route path="/settings" component={Settings} />
+          <Route path="/reports"      component={Reports} />
+          <Route path="/sensors"      component={Sensors} />
+          <Route path="/settings"     component={Settings} />
           <Route component={NotFound} />
         </Switch>
       </Layout>
@@ -54,20 +55,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CameraVideoProvider>
-          <LocalWarningLogsProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AuthProvider>
-                <Switch>
-                  <Route path="/" component={() => <Login />} />
-                  <Route path="/login" component={Login} />
-                  <Route path="/:rest*" component={ProtectedRoutes} />
-                </Switch>
-              </AuthProvider>
-            </WouterRouter>
-            <Toaster theme="dark" position="top-right" richColors />
-          </LocalWarningLogsProvider>
-        </CameraVideoProvider>
+        <NotificationProvider>
+          <CameraVideoProvider>
+            <LocalWarningLogsProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <AuthProvider>
+                  <Switch>
+                    <Route path="/"       component={() => <Login />} />
+                    <Route path="/login"  component={Login} />
+                    <Route path="/:rest*" component={ProtectedRoutes} />
+                  </Switch>
+                </AuthProvider>
+              </WouterRouter>
+              <Toaster theme="dark" position="top-right" richColors />
+            </LocalWarningLogsProvider>
+          </CameraVideoProvider>
+        </NotificationProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

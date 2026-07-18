@@ -38,7 +38,7 @@ export function LocalWarningLogsProvider({ children }: { children: React.ReactNo
 
   const addLog = useCallback((log: Omit<LocalWarningLog, "id" | "isLocal">) => {
     const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setLogs(prev => [{ ...log, id, isLocal: true }, ...prev].slice(0, 500));
+    setLogs(prev => [{ ...log, id, isLocal: true as const }, ...prev].slice(0, 500));
   }, []);
 
   const deleteLog = useCallback((id: string) => {

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "../hooks/use-auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListAlertsQueryKey } from "@workspace/api-client-react";
+import { getListAlertsQueryKey, getGetAlertQueryKey } from "@workspace/api-client-react";
 
 export default function Alerts() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -22,7 +22,7 @@ export default function Alerts() {
   const queryClient = useQueryClient();
   
   const { data: alerts, isLoading } = useListAlerts({ status: filterStatus === 'all' ? undefined : filterStatus });
-  const { data: selectedAlert } = useGetAlert(selectedAlertId || "", { query: { enabled: !!selectedAlertId } });
+  const { data: selectedAlert } = useGetAlert(selectedAlertId || "", { query: { enabled: !!selectedAlertId, queryKey: getGetAlertQueryKey(selectedAlertId || "") } });
   
   const ackMutation = useAcknowledgeAlert();
   const resolveMutation = useResolveAlert();
