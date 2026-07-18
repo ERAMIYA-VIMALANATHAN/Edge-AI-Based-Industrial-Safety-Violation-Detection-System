@@ -119,56 +119,111 @@ function analyzeVest(data: Uint8ClampedArray): number {
 }
 
 /**
- * Gender estimation based on shoulder-to-head-width ratio.
+ * Gender estimation — face-shape + hair-extension approach.
  *
- * Males typically have broader shoulders relative to their head width
- * (ratio > ~1.4), while females tend to have narrower relative shoulder
- * spread (ratio < ~1.3). This is a heuristic — accuracy improves with
- * clear, unoccluded full-body images.
+ * Strategy (strongly male-biased, appropriate for industrial settings):
+ *   1. Find skin-toned pixels in the face region (below the helmet, ~15–40 % of bbox).
+ *   2. Compute the bounding box of that skin cluster → face width & height.
+ *   3. Check the zone just below the face for hair signatures flanking the sides.
+ *   4. Default = MALE.  Flip to FEMALE only when BOTH:
+ *      a) Face is clearly taller than wide  (narrowOval: skinH > skinW * 1.15), AND
+ *      b) Visible hair detected flanking the lower face / neck on at least one side.
+ *
+ * This prevents wide-faced males and workers in dark clothes from being mis-classified
+ * as female.  It works well for helmeted workers where the only reliable female cues
+ * are face shape + visible hair escaping the helmet.
  */
 function estimateGender(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number,
   sw: number, sh: number
 ): "male" | "female" {
-  // Head region: top 20 % of bbox
-  const hx  = Math.max(0, Math.round(x));
-  const hy  = Math.max(0, Math.round(y));
-  const hw  = Math.min(Math.round(w), sw - hx);
-  const hh  = Math.min(Math.round(h * 0.20), sh - hy);
 
-  // Shoulder region: 25 – 48 % from top
-  const sy  = Math.max(0, Math.round(y + h * 0.25));
-  const sh2 = Math.min(Math.round(h * 0.23), sh - sy);
+  // ── Face scan region: 12 – 42 % from top of bbox (below helmet brim) ─────
+  const fx = Math.max(0, Math.round(x + w * 0.10));
+  const fy = Math.max(0, Math.round(y + h * 0.12));
+  const fw = Math.min(Math.round(w * 0.80), sw - fx);
+  const fh = Math.min(Math.round(h * 0.30), sh - fy);
+  if (fw <= 0 || fh <= 0) return "male";
 
-  if (hw <= 0 || hh <= 0 || sh2 <= 0) return "male";
+  const faceData = ctx.getImageData(fx, fy, fw, fh).data;
 
-  function horizontalSpread(data: Uint8ClampedArray, width: number, height: number): number {
-    let lo = width, hi = 0;
-    for (let row = 0; row < height; row++) {
-      for (let col = 0; col < width; col++) {
-        const i = (row * width + col) * 4;
-        const a = data[i + 3];
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        // Only count non-transparent, non-near-black pixels
-        if (a > 80 && (r + g + b) > 60) {
-          if (col < lo) lo = col;
-          if (col > hi) hi = col;
-        }
+  let minRow = fh, maxRow = 0, minCol = fw, maxCol = 0, skinCount = 0;
+  for (let row = 0; row < fh; row++) {
+    for (let col = 0; col < fw; col++) {
+      const i = (row * fw + col) * 4;
+      const r = faceData[i], g = faceData[i + 1], b = faceData[i + 2], a = faceData[i + 3];
+      if (a < 80) continue;
+      // Skin tone: warm, R-dominant, not too dark, not too saturated
+      const isSkin = r > 110 && g > 70 && b > 50
+                  && r > g && g >= b
+                  && (r - b) > 15 && r < 245
+                  && (Math.max(r, g, b) - Math.min(r, g, b)) < 120;
+      if (isSkin) {
+        skinCount++;
+        if (row < minRow) minRow = row;
+        if (row > maxRow) maxRow = row;
+        if (col < minCol) minCol = col;
+        if (col > maxCol) maxCol = col;
       }
     }
-    return hi > lo ? hi - lo : width * 0.5;
   }
 
-  const headData     = ctx.getImageData(hx, hy,  hw, hh).data;
-  const shoulderData = ctx.getImageData(hx, sy,  hw, sh2).data;
+  // Not enough skin → can't tell → default male
+  if (skinCount < 30) return "male";
 
-  const headSpread     = horizontalSpread(headData,     hw, hh);
-  const shoulderSpread = horizontalSpread(shoulderData, hw, sh2);
+  const skinW = Math.max(1, maxCol - minCol);
+  const skinH = Math.max(1, maxRow - minRow);
 
-  const ratio = shoulderSpread / Math.max(headSpread, 1);
-  // > 1.38 → male (broader shoulders); ≤ 1.38 → female
-  return ratio > 1.38 ? "male" : "female";
+  // Signal A: face notably taller than wide (narrow oval) → female cue
+  const narrowOval = skinH > skinW * 1.15;
+
+  if (!narrowOval) return "male"; // wide/square face → male, skip hair check
+
+  // ── Hair check: scan the flanks of the lower-face / neck zone ────────────
+  // Region: just below face scan zone, left 20 % and right 20 % columns only
+  const hairY = Math.min(sh - 1, fy + fh);
+  const hairH = Math.min(Math.round(h * 0.12), sh - hairY);
+  const hairX = Math.max(0, Math.round(x));
+  const hairW = Math.min(Math.round(w), sw - hairX);
+  if (hairH <= 0 || hairW <= 0) return "male";
+
+  const hairData = ctx.getImageData(hairX, hairY, hairW, hairH).data;
+  const flankW   = Math.round(hairW * 0.22); // sample outer 22 % on each side
+  let leftHair = 0, leftTotal = 0, rightHair = 0, rightTotal = 0;
+
+  for (let row = 0; row < hairH; row++) {
+    for (let col = 0; col < hairW; col++) {
+      const i  = (row * hairW + col) * 4;
+      const r  = hairData[i], g = hairData[i + 1], b = hairData[i + 2], a = hairData[i + 3];
+      if (a < 80) continue;
+      // Hair colours: dark (black/dark-brown) or medium-brown, NOT PPE colours
+      const brightness = (r + g + b) / 3;
+      const isHairColor = brightness < 120          // dark hair
+        || (r > 60 && r < 170 && g > 30 && g < 110 && b < 80); // brown
+      // Exclude helmet/PPE colours
+      const isHelmetOrVest = (r > 200 && g > 200 && b < 100)  // yellow
+        || (r > 200 && g > 100 && b < 80)                       // orange
+        || (r > 200 && g > 200 && b > 190)                      // white
+        || (b > 150 && b > r + 40);                             // blue
+
+      if (col < flankW) {
+        leftTotal++;
+        if (isHairColor && !isHelmetOrVest) leftHair++;
+      } else if (col > hairW - flankW) {
+        rightTotal++;
+        if (isHairColor && !isHelmetOrVest) rightHair++;
+      }
+    }
+  }
+
+  const leftRatio  = leftTotal  > 0 ? leftHair  / leftTotal  : 0;
+  const rightRatio = rightTotal > 0 ? rightHair / rightTotal : 0;
+  // Signal B: at least one side has ≥ 32 % hair-coloured pixels
+  const hasHairSignal = leftRatio > 0.32 || rightRatio > 0.32;
+
+  // Female only when BOTH signals fire
+  return (narrowOval && hasHairSignal) ? "female" : "male";
 }
 
 /** Draw source into an offscreen canvas and return its 2D context. */

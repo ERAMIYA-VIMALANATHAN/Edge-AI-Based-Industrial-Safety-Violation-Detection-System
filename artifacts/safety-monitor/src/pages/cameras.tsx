@@ -782,10 +782,10 @@ export default function Cameras() {
                     {camMedia && (
                       <button
                         data-testid={`button-remove-media-${cam.id}`}
-                        onClick={e => { e.stopPropagation(); removeMedia(cam.id); toast.success("Media removed"); }}
-                        className="text-slate-400 hover:text-red-400 text-xs font-mono flex items-center gap-1 uppercase tracking-wider transition-colors"
+                        onClick={e => { e.stopPropagation(); removeMedia(cam.id); toast.success("Media cleared"); }}
+                        className="text-slate-400 hover:text-blue-400 text-xs font-mono flex items-center gap-1 uppercase tracking-wider transition-colors"
                       >
-                        <VideoOff size={12} /> Remove
+                        <VideoOff size={12} /> Clear {hasPhoto ? "Photo" : "Video"}
                       </button>
                     )}
 
@@ -798,12 +798,12 @@ export default function Cameras() {
                       </button>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 border-l border-slate-800 pl-3">
                     <button onClick={e => { e.stopPropagation(); openEdit(cam); }} className="text-slate-400 hover:text-amber-500 text-xs font-mono flex items-center gap-1 uppercase tracking-wider transition-colors">
                       <Edit2 size={12} /> Config
                     </button>
-                    <button onClick={e => { e.stopPropagation(); handleDelete(cam.id); }} className="text-slate-400 hover:text-red-500 text-xs font-mono flex items-center gap-1 uppercase tracking-wider transition-colors">
-                      <Trash2 size={12} /> Remove
+                    <button onClick={e => { e.stopPropagation(); handleDelete(cam.id); }} className="text-red-800 hover:text-red-400 text-xs font-mono flex items-center gap-1 uppercase tracking-wider transition-colors border border-red-900/40 px-2 py-0.5 rounded">
+                      <Trash2 size={12} /> Delete Camera
                     </button>
                   </div>
                 </div>
