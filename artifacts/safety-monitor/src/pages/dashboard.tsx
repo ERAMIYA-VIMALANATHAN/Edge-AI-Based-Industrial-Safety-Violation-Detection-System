@@ -230,22 +230,34 @@ function MockFeed({ feed }: { feed: LiveCameraFeed }) {
 // ─── Static photo feed ─────────────────────────────────────────────────────
 
 function PhotoFeed({ feed, photoUrl, detections }: { feed: LiveCameraFeed; photoUrl: string; detections: PersonDetection[] }) {
+  const imgRef    = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
+  const paintBoxes = useCallback(() => {
+    const img    = imgRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!img || !canvas || !img.naturalWidth || !img.clientWidth) return;
+
+    const scaleX = img.clientWidth  / img.naturalWidth;
+    const scaleY = img.clientHeight / img.naturalHeight;
+
+    canvas.width  = img.clientWidth;
+    canvas.height = img.clientHeight;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const img = new window.Image();
-    img.onload = () => {
-      canvas.width  = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0);
-      drawDetections(ctx, detections, img.naturalWidth, img.naturalHeight);
-    };
-    img.src = photoUrl;
-  }, [photoUrl, detections]);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const scaled = detections.map(d => ({
+      ...d,
+      bbox: [d.bbox[0] * scaleX, d.bbox[1] * scaleY, d.bbox[2] * scaleX, d.bbox[3] * scaleY] as [number, number, number, number],
+    }));
+    drawDetections(ctx, scaled, canvas.width, canvas.height);
+  }, [detections]);
+
+  useEffect(() => {
+    if (imgRef.current?.complete) paintBoxes();
+  }, [paintBoxes]);
 
   const violations = detections.filter(d => !d.hasHelmet || !d.hasVest);
 
@@ -263,8 +275,18 @@ function PhotoFeed({ feed, photoUrl, detections }: { feed: LiveCameraFeed; photo
           </span>
         )}
       </div>
-      <div className="bg-black">
-        <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block" }} />
+      <div className="relative bg-slate-950">
+        <img
+          ref={imgRef}
+          src={photoUrl}
+          alt="PPE analysis"
+          onLoad={paintBoxes}
+          style={{ display: "block", width: "100%", height: "auto" }}
+        />
+        <canvas
+          ref={canvasRef}
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+        />
       </div>
     </div>
   );
