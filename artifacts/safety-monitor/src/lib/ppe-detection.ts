@@ -21,36 +21,60 @@ export type WorkerRef = { rfidId: string; name: string };
 
 // ─── Color analysis helpers ────────────────────────────────────────────────
 
-/** Hard-hat colours: yellow, white, orange, blue, red, green lids */
+/**
+ * Helmet analysis — broad approach:
+ * Hard hats can be ANY solid colour (yellow, white, orange, red, blue, green, grey).
+ * We detect them by two signals:
+ *   a) Specific safety colours (high confidence hits)
+ *   b) Any pixel that is noticeably bright/saturated and NOT skin-toned (lower-confidence hits)
+ * This ensures real helmets of any colour are caught.
+ */
 function analyzeHelmet(data: Uint8ClampedArray): number {
   let hits = 0, total = 0;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-    if (a < 100) continue;
+    if (a < 80) continue;
     total++;
-    const isYellow  = r > 175 && g > 150 && b < 90;
-    const isWhite   = r > 205 && g > 205 && b > 205;
-    const isOrange  = r > 195 && g > 85  && g < 165 && b < 70;
-    const isBlue    = b > r + 40 && b > g + 30 && b > 120;
-    const isRed     = r > 165 && g < 90  && b < 90;
-    const isGreen   = g > r + 40 && g > b + 30 && g > 120;
-    if (isYellow || isWhite || isOrange || isBlue || isRed || isGreen) hits++;
+
+    // Specific safety hard-hat colours (strong signal)
+    const isYellow   = r > 160 && g > 140 && b < 100;
+    const isWhite    = r > 190 && g > 190 && b > 190;
+    const isOrange   = r > 180 && g > 70  && g < 160 && b < 80;
+    const isBlue     = b > r + 30 && b > g + 20 && b > 100;
+    const isRed      = r > 150 && g < 80  && b < 80;
+    const isGreen    = g > r + 30 && g > b + 20 && g > 100;
+    const isLimeYellow = r > 180 && g > 200 && b < 80;
+
+    // Broad bright/saturated non-skin signal (weaker, still counts)
+    const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+    const saturation = maxC > 0 ? (maxC - minC) / maxC : 0;
+    const isBrightSaturated = maxC > 130 && saturation > 0.30;
+    // Exclude obvious skin tones
+    const isSkin = r > 120 && g > 80 && b > 60 && r > g && g > b && (r - b) > 30 && saturation < 0.55;
+
+    if (isYellow || isWhite || isOrange || isBlue || isRed || isGreen || isLimeYellow) {
+      hits += 2; // strong signal counts double
+    } else if (isBrightSaturated && !isSkin) {
+      hits += 1;
+    }
   }
-  return total > 10 ? hits / total : 0;
+  // Normalise against doubled max
+  return total > 10 ? Math.min(hits / (total * 2), 1) : 0;
 }
 
-/** Safety-vest colours: safety orange, high-vis yellow/lime, neon green */
+/** Safety-vest colours: safety orange, high-vis yellow/lime, neon green, reflective bright */
 function analyzeVest(data: Uint8ClampedArray): number {
   let hits = 0, total = 0;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-    if (a < 100) continue;
+    if (a < 80) continue;
     total++;
-    const isOrange      = r > 210 && g > 90  && g < 170 && b < 60;
-    const isYellow      = r > 200 && g > 185 && b < 70;
-    const isYellowGreen = g > 190 && r > 160 && b < 70;
-    const isNeon        = g > 200 && r < 120  && b < 80;
-    if (isOrange || isYellow || isYellowGreen || isNeon) hits++;
+    const isOrange      = r > 190 && g > 80  && g < 175 && b < 70;
+    const isYellow      = r > 185 && g > 170 && b < 80;
+    const isYellowGreen = g > 175 && r > 145 && b < 80;
+    const isNeon        = g > 185 && r < 130  && b < 90;
+    const isReflective  = r > 200 && g > 200 && b > 150; // bright reflective strips
+    if (isOrange || isYellow || isYellowGreen || isNeon || isReflective) hits++;
   }
   return total > 10 ? hits / total : 0;
 }
@@ -83,7 +107,7 @@ export async function detectPPE(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const model = await getDetectionModel() as any;
   const preds  = await model.detect(source) as Array<{ class: string; score: number; bbox: [number, number, number, number] }>;
-  const persons = preds.filter(p => p.class === "person" && p.score > 0.38);
+  const persons = preds.filter(p => p.class === "person" && p.score > 0.18);
   if (persons.length === 0) return [];
 
   const snap = snapshotSource(source);
@@ -104,19 +128,19 @@ export async function detectPPE(
       const hh = Math.min(Math.round(h * 0.30), sh - hy);
       if (hw > 0 && hh > 0) {
         const raw = analyzeHelmet(ctx.getImageData(hx, hy, hw, hh).data);
-        helmetConf = Math.min(99, Math.round(raw * 500 + 35));
-        hasHelmet  = raw > 0.07;
+        helmetConf = Math.min(99, Math.round(raw * 400 + 30));
+        hasHelmet  = raw > 0.04;
       }
 
-      // Torso region = 25–75 % of bbox height
+      // Torso region = 20–80 % of bbox height (wider to catch full vest)
       const tx = Math.max(0, Math.round(x));
-      const ty = Math.max(0, Math.round(y + h * 0.25));
+      const ty = Math.max(0, Math.round(y + h * 0.20));
       const tw2 = Math.min(Math.round(w), sw - tx);
-      const th = Math.min(Math.round(h * 0.50), sh - ty);
+      const th = Math.min(Math.round(h * 0.60), sh - ty);
       if (tw2 > 0 && th > 0) {
         const raw = analyzeVest(ctx.getImageData(tx, ty, tw2, th).data);
-        vestConf = Math.min(99, Math.round(raw * 500 + 35));
-        hasVest  = raw > 0.07;
+        vestConf = Math.min(99, Math.round(raw * 400 + 30));
+        hasVest  = raw > 0.04;
       }
     }
 

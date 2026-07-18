@@ -230,21 +230,22 @@ function MockFeed({ feed }: { feed: LiveCameraFeed }) {
 // ─── Static photo feed ─────────────────────────────────────────────────────
 
 function PhotoFeed({ feed, photoUrl, detections }: { feed: LiveCameraFeed; photoUrl: string; detections: PersonDetection[] }) {
-  const imgRef    = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [dims, setDims] = useState({ w: 640, h: 360 });
 
-  const handleLoad = () => {
-    const img = imgRef.current;
-    if (!img) return;
-    setDims({ w: img.naturalWidth, h: img.naturalHeight });
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width  = img.naturalWidth;
-    canvas.height = img.naturalHeight;
     const ctx = canvas.getContext("2d");
-    if (ctx) drawDetections(ctx, detections, img.naturalWidth, img.naturalHeight);
-  };
+    if (!ctx) return;
+    const img = new window.Image();
+    img.onload = () => {
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+      drawDetections(ctx, detections, img.naturalWidth, img.naturalHeight);
+    };
+    img.src = photoUrl;
+  }, [photoUrl, detections]);
 
   const violations = detections.filter(d => !d.hasHelmet || !d.hasVest);
 
@@ -262,9 +263,8 @@ function PhotoFeed({ feed, photoUrl, detections }: { feed: LiveCameraFeed; photo
           </span>
         )}
       </div>
-      <div className="relative bg-black" style={{ minHeight: 180 }}>
-        <img ref={imgRef} src={photoUrl} alt="camera" onLoad={handleLoad} className="w-full h-full object-contain" style={{ display: "block" }} />
-        <canvas ref={canvasRef} width={dims.w} height={dims.h} className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+      <div className="bg-black">
+        <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block" }} />
       </div>
     </div>
   );
@@ -277,7 +277,7 @@ export default function Dashboard() {
   const { data: feeds,    isLoading: loadingFeeds }   = useGetLiveFeed({ query: { refetchInterval: 3000, queryKey: getGetLiveFeedQueryKey() } });
   const { data: alerts }                              = useGetActiveAlerts({ query: { refetchInterval: 3000, queryKey: getGetActiveAlertsQueryKey() } });
   const { data: sensors }                             = useGetLiveSensorData({ query: { refetchInterval: 5000, queryKey: getGetLiveSensorDataQueryKey() } });
-  const { data: workers = [] }                        = useListWorkers({ query: { queryKey: getListWorkersQueryKey() } });
+  const { data: workers = [] }                        = useListWorkers();
 
   const { media }          = useCameraMedia();
   const { addLog }         = useLocalWarningLogs();

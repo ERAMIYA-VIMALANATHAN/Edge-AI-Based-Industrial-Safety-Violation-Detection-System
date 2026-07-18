@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   useListCameras,
   useCreateCamera,
@@ -31,7 +31,7 @@ const cameraSchema = z.object({
 });
 type CameraFormData = z.infer<typeof cameraSchema>;
 
-/** Show a detected photo with bounding boxes drawn over it. */
+/** Show a detected photo with bounding boxes drawn over it — single canvas approach. */
 function PhotoDetectionCard({
   cam,
   photoUrl,
@@ -43,23 +43,22 @@ function PhotoDetectionCard({
   detections: PersonDetection[];
   onRemove: () => void;
 }) {
-  const imgRef  = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [dims, setDims] = useState({ w: 640, h: 360 });
 
-  const handleLoad = () => {
-    const img = imgRef.current;
-    if (!img) return;
-    const w = img.naturalWidth;
-    const h = img.naturalHeight;
-    setDims({ w, h });
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width  = w;
-    canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (ctx) drawDetections(ctx, detections, w, h);
-  };
+    if (!ctx) return;
+    const img = new window.Image();
+    img.onload = () => {
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+      drawDetections(ctx, detections, img.naturalWidth, img.naturalHeight);
+    };
+    img.src = photoUrl;
+  }, [photoUrl, detections]);
 
   const violations = detections.filter(d => !d.hasHelmet || !d.hasVest);
 
@@ -81,20 +80,10 @@ function PhotoDetectionCard({
           <button onClick={onRemove} className="text-[10px] text-slate-600 hover:text-red-400 font-mono uppercase transition-colors">Remove</button>
         </div>
       </div>
-      <div className="relative">
-        <img
-          ref={imgRef}
-          src={photoUrl}
-          alt="Uploaded"
-          onLoad={handleLoad}
-          className="w-full object-contain"
-          style={{ display: "block" }}
-        />
+      <div>
         <canvas
           ref={canvasRef}
-          width={dims.w}
-          height={dims.h}
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          style={{ width: "100%", height: "auto", display: "block" }}
         />
       </div>
       {detections.length > 0 && (
