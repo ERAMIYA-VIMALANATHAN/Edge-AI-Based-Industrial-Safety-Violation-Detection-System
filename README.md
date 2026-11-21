@@ -2,7 +2,7 @@
 
 An AI-based Industrial Safety Monitoring System that detects Personal Protective Equipment (PPE) violations in real time and instantly alerts workers through IoT devices. The system combines Computer Vision, Web Technologies, and Embedded Hardware to improve workplace safety, reduce accidents, and ensure PPE compliance in industrial environments.
 
----
+--
 
 ## 📌 Problem Statement
 
