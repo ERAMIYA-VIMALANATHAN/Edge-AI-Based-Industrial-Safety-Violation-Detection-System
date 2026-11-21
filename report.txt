@@ -1,0 +1,288 @@
+================================================================================
+  ML CONCEPTS REPORT — PPE Safety Gear Classifier
+  Project: Industrial Safety Violation Detection System
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. WHAT TYPE OF MACHINE LEARNING IS USED?
+--------------------------------------------------------------------------------
+
+Type: Supervised Learning — Binary Image Classification
+
+- You provide labeled images ("Wearing Safety Gear" / "Not Wearing Safety Gear")
+- The model learns to predict the correct label for new, unseen images
+- Binary = only 2 output classes (compliant = 1, violation = 0)
+
+This falls under the Computer Vision branch of Machine Learning.
+
+
+--------------------------------------------------------------------------------
+2. IS DEEP LEARNING USED?
+--------------------------------------------------------------------------------
+
+Yes — fully. The model is a Deep Convolutional Neural Network (CNN), which is
+the foundation of modern computer vision and deep learning.
+
+Data flow through the network:
+
+  Input Image (224 x 224 pixels)
+          |
+  Convolutional Layers    <-- learn edges, textures, shapes, safety gear patterns
+          |
+  Feature Maps            <-- abstract visual representations of the image
+          |
+  Global Average Pooling  <-- compress spatial features into a 1D vector
+          |
+  Fully Connected Layers  <-- combine all features for final classification
+          |
+  Sigmoid Output (0–1)    <-- probability of "Wearing Safety Gear"
+
+The network has 53 layers total (MobileNetV2 base) plus the custom head layers.
+
+
+--------------------------------------------------------------------------------
+3. WHAT KIND OF MODEL IS THIS?
+--------------------------------------------------------------------------------
+
+Model Type: Transfer Learning with MobileNetV2
+
+This is NOT an Ensemble model. Comparison of types:
+
+  Ensemble Model    — Combines multiple independent models (e.g. Random Forest,
+                      XGBoost, Gradient Boosting). Used in traditional ML.
+
+  Transfer Learning — Takes a model already trained on a massive dataset
+                      (ImageNet, 1.2 million images, 1000 classes) and
+                      retrains the final layers for a new specific task.
+                      THIS is what the PPE classifier uses.
+
+  MobileNetV2       — A lightweight CNN architecture with inverted residual
+                      blocks and depthwise separable convolutions. Designed
+                      for efficiency on mobile/edge devices. Originally trained
+                      on ImageNet by Google.
+
+Analogy: Hiring an expert who already knows how to recognize objects in general,
+then specifically teaching them to identify helmets and safety vests.
+
+Architecture breakdown:
+
+  MobileNetV2 Base (pretrained on ImageNet)
+    └── 53 convolutional layers
+    └── Inverted residual blocks
+    └── Depthwise separable convolutions
+    └── Weights frozen in Phase 1, top 4 blocks unfrozen in Phase 2
+
+  Custom Classification Head (trained from scratch)
+    └── Global Average Pooling
+    └── Dropout (0.30)
+    └── Dense layer (128 neurons, ReLU activation)
+    └── Dropout (0.20)
+    └── Output neuron (Sigmoid activation → probability 0 to 1)
+
+
+--------------------------------------------------------------------------------
+4. TWO-PHASE TRAINING STRATEGY
+--------------------------------------------------------------------------------
+
+Phase 1 — Head Training (Backbone Frozen)
+
+  MobileNetV2 base  -->  FROZEN  (weights do not change)
+  Custom head       -->  TRAINS  (learns PPE-specific classification)
+
+  The base already knows how to detect shapes, textures, and objects from
+  ImageNet training. Only the small custom head is trained in this phase.
+  Learning rate: 0.001 (LR_HEAD)
+  Max epochs: 20 (EPOCHS_HEAD)
+
+Phase 2 — Fine-Tuning (Top Layers Unfrozen)
+
+  MobileNetV2 bottom layers  -->  FROZEN  (basic edges, textures)
+  MobileNetV2 top 4 blocks   -->  TRAINS  (adapts to safety gear features)
+  Custom head                -->  TRAINS
+
+  The model fine-tunes its higher-level feature detection to be more sensitive
+  to helmets, vests, and safety gear patterns specifically.
+  Learning rate: 0.00001 (LR_FINE) — very small to avoid destroying pretrained weights
+  Max epochs: 15 (EPOCHS_FINE)
+
+
+--------------------------------------------------------------------------------
+5. HYPERPARAMETERS — WHAT THEY DO
+--------------------------------------------------------------------------------
+
+Hyperparameters are settings chosen before training. The model does NOT learn
+these — they are manually configured by the developer.
+
+  IMG_SIZE = 224
+    Every input image is resized to 224x224 pixels.
+    MobileNetV2 requires exactly this input size (standard for ImageNet models).
+
+  BATCH_SIZE = 16
+    Number of images processed together in one forward/backward pass.
+    Smaller batch = less memory needed, more gradient noise (can help generalization).
+
+  EPOCHS_HEAD = 20
+    Maximum number of times the model sees the full training dataset in Phase 1.
+    Early stopping may terminate before this limit.
+
+  EPOCHS_FINE = 15
+    Maximum passes through training data in Phase 2 (fine-tuning).
+
+  LR_HEAD = 0.001
+    Learning rate for Phase 1. Controls how large each weight update step is.
+    Higher = faster learning but risk of overshooting the optimal solution.
+
+  LR_FINE = 0.00001
+    Very small learning rate for fine-tuning.
+    Tiny steps prevent destroying the pretrained ImageNet knowledge.
+
+  VAL_SPLIT = 0.20
+    20% of images are held back for validation (72 images).
+    80% used for training (284 images).
+    Validation set measures real-world performance on unseen data.
+
+  PATIENCE = 8
+    Early stopping patience. If validation accuracy does not improve for
+    8 consecutive epochs, training stops automatically to save time.
+
+  FINE_TUNE_AT = 4
+    Number of top MobileNetV2 blocks to unfreeze during Phase 2.
+    Lower blocks detect basic features (edges), top blocks detect complex
+    patterns (objects, shapes) — only top blocks need adapting.
+
+  SEED = 42
+    Random seed for reproducibility. Ensures the same train/val split
+    and weight initialization every run.
+
+
+--------------------------------------------------------------------------------
+6. HOW HYPERPARAMETERS ARE SET BASED ON YOUR DEVICE (CPU, NO GPU)
+--------------------------------------------------------------------------------
+
+Your machine runs training on CPU only (no NVIDIA GPU detected).
+
+  Setting          CPU Value    Why
+  ----------------------------------------------------------------
+  BATCH_SIZE       16           Low — larger batches require more RAM/VRAM.
+                                16 is safe for CPU training.
+
+  num_workers      0            DataLoader workers. Set to 0 to avoid
+                                multiprocessing issues on Windows/WSL.
+
+  pin_memory       False        Only useful with GPU for faster data transfer
+                                to VRAM. Disabled for CPU.
+
+  LR_HEAD          1e-3         Standard for Adam optimizer on any device.
+
+  LR_FINE          1e-5         Always very low for fine-tuning regardless of device.
+
+  Training speed   Slow         CPU training takes 15–40 minutes for this dataset.
+                                A GPU (e.g. NVIDIA RTX) would be 10–30x faster.
+
+If a GPU were available, recommended changes:
+  BATCH_SIZE = 32 or 64
+  num_workers = 4
+  pin_memory = True
+
+
+--------------------------------------------------------------------------------
+7. DEEP LEARNING CONCEPTS USED IN THE SCRIPT
+--------------------------------------------------------------------------------
+
+Concept                  Where Used                  Purpose
+--------------------------------------------------------------------------------
+Convolutional Layers     MobileNetV2 base            Extract spatial features
+                                                      (edges, textures, shapes)
+
+Transfer Learning        MobileNetV2 pretrained      Reuse ImageNet knowledge
+                         on ImageNet                 for a small dataset
+
+Data Augmentation        train_transform pipeline    Artificially increase dataset
+                         - RandomHorizontalFlip       variety, prevent overfitting
+                         - RandomRotation(15°)        on only 356 images
+                         - ColorJitter
+                         - RandomAffine
+
+Dropout                  After GAP (0.30) and        Randomly disables neurons
+                         after Dense (0.20)           during training to prevent
+                                                      overfitting
+
+Adam Optimizer           Both phases                 Adaptive learning rate
+                                                      optimizer — adjusts per
+                                                      parameter automatically
+
+BCEWithLogitsLoss        Loss function               Binary Cross-Entropy loss.
+                                                      Measures how wrong the
+                                                      model's prediction is vs
+                                                      the true label
+
+ReduceLROnPlateau        Learning rate scheduler     Halves learning rate when
+                                                      validation loss stops
+                                                      improving — helps escape
+                                                      training plateaus
+
+Early Stopping           Training loop               Stops training when val
+                         (patience=8)                accuracy stops improving
+                                                      for 8 epochs — saves time
+                                                      and prevents overfitting
+
+Global Average Pooling   After MobileNetV2 base      Converts feature maps to
+                                                      a flat vector. More robust
+                                                      than Flatten, fewer params
+
+ImageNet Normalization   val_transform and           MobileNetV2 was trained
+                         train_transform             with these exact pixel stats.
+                         mean=[0.485, 0.456, 0.406]  Must match during inference
+                         std= [0.229, 0.224, 0.225]  too or predictions are wrong
+
+Sigmoid Activation       Output layer                Converts raw logit to
+                                                      probability (0.0 – 1.0)
+                                                      for binary classification
+
+Inverted Residual Blocks MobileNetV2 architecture    Skip connections that allow
+(Residual Connections)                               gradients to flow directly
+                                                      through the network during
+                                                      backpropagation
+
+Depthwise Separable      MobileNetV2 architecture    Efficient convolution that
+Convolutions                                         separates spatial and channel
+                                                      filtering — reduces compute
+                                                      by ~8–9x vs standard conv
+
+
+--------------------------------------------------------------------------------
+8. MODEL OUTPUT INTERPRETATION
+--------------------------------------------------------------------------------
+
+The model outputs a single value between 0 and 1 (sigmoid probability):
+
+  Score > 0.5   -->  "Wearing Safety Gear"      (COMPLIANT)
+  Score <= 0.5  -->  "Not Wearing Safety Gear"  (VIOLATION)
+
+Example:
+  Output = 0.92  -->  92% confident the person IS wearing safety gear
+  Output = 0.23  -->  77% confident the person is NOT wearing safety gear
+
+
+--------------------------------------------------------------------------------
+9. SUMMARY
+--------------------------------------------------------------------------------
+
+  ML Type         :  Supervised Learning
+  Task            :  Binary Image Classification
+  Approach        :  Deep Learning
+  Model Family    :  Convolutional Neural Network (CNN)
+  Strategy        :  Transfer Learning (NOT Ensemble)
+  Base Model      :  MobileNetV2 (53 layers, pretrained on ImageNet)
+  Dataset Size    :  356 images (small dataset)
+  Small Dataset   :  Handled via Transfer Learning + Data Augmentation
+  Training Device :  CPU (no GPU)
+  Output          :  Sigmoid probability — 0 to 1
+  Saved Formats   :  .pth (PyTorch weights)
+                     .pt  (Full model)
+                     .onnx (Cross-platform / browser convertible)
+
+================================================================================
+  End of Report
+================================================================================
